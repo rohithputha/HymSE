@@ -7,19 +7,20 @@ import java.io.FileNotFoundException;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class AccessFileObjectPool implements ObjectPool<RandomAccessFile> {
     private BlockingQueue<RandomAccessFile> pool;
-
     @Getter
     private char type;
-    private AccessFileObjectPool(int size, String file,char type) throws FileNotFoundException {
+    private AccessFileObjectPool(int size, String file,String type) throws FileNotFoundException {
         pool = new ArrayBlockingQueue<>(size);
-        String t = String.valueOf(type);
+
         for(int i=0;i<size;i++){
-            pool.offer(new RandomAccessFile(file, t));
+            pool.offer(new RandomAccessFile(file, type));
         }
     }
     @Override
@@ -32,17 +33,17 @@ public class AccessFileObjectPool implements ObjectPool<RandomAccessFile> {
         pool.put(obj);
     }
 
-    private static AccessFileObjectPool accessFileObjectPool;
-    public static AccessFileObjectPool getInstance(int size, String file, char type) throws FileNotFoundException {
-        if(accessFileObjectPool==null){
-            synchronized (AccessFileObjectPool.class){
-                if(accessFileObjectPool==null){
-                    accessFileObjectPool = new AccessFileObjectPool(size, file, type);
-
+    private static Map<String, AccessFileObjectPool> accessFileObjectPoolMap;
+    public static AccessFileObjectPool getInstance(int size, String file) throws FileNotFoundException {
+        synchronized (AccessFileObjectPool.class){
+                if(accessFileObjectPoolMap == null){
+                    accessFileObjectPoolMap = new ConcurrentHashMap<>();
                 }
-            }
+                if(!accessFileObjectPoolMap.containsKey(file)){
+                    accessFileObjectPoolMap.put(file, new AccessFileObjectPool(size, file, "rw"));
+                }
         }
 
-        return accessFileObjectPool;
+        return accessFileObjectPoolMap.get(file);
     }
 }

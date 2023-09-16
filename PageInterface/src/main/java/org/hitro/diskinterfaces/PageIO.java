@@ -1,5 +1,6 @@
 package org.hitro.diskinterfaces;
 
+import org.hitro.config.DiskOperationConfig;
 import org.hitro.config.PageConfig;
 import org.hitro.diskinterfaces.abstractions.DiskInterface;
 import org.hitro.exception.HymDiskAccessException;
@@ -7,32 +8,27 @@ import org.hitro.utils.AccessFileObjectPool;
 import org.hitro.utils.FileLockManager;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class PageIO implements DiskInterface<Integer, byte[]> {
 
-    private AccessFileObjectPool accessFileObjectPool;
-    private FileLockManager fileLockManager;
+    private final DiskOperationConfig diskOperationConfig;
 
-    public PageIO(AccessFileObjectPool accessFileObjectPool, FileLockManager fileLockManager){
-        this.accessFileObjectPool= accessFileObjectPool;
-        this.fileLockManager = fileLockManager;
+    public PageIO(DiskOperationConfig diskOperationConfig){
+        this.diskOperationConfig = diskOperationConfig;
     }
 
     @Override
     public byte[] read(Integer offset) {
         byte[] rd = new byte[PageConfig.getPageSize()];
-        ReentrantReadWriteLock.ReadLock readLock = fileLockManager.getRwLock().readLock();
         try {
-            RandomAccessFile raf = accessFileObjectPool.acquire();
-            readLock.lock();
+            RandomAccessFile raf = diskOperationConfig.getAccessFileObjectPool().acquire();
+            diskOperationConfig.lockRead();
             raf.seek(offset);
-            fileLockManager.getRwLock().readLock();
             raf.read(rd);
-            readLock.unlock();
-            accessFileObjectPool.release(raf);
+            diskOperationConfig.unlockRead();
+            diskOperationConfig.getAccessFileObjectPool().release(raf);
 
         } catch (Exception e) {
             throw new HymDiskAccessException(e.getMessage());
@@ -42,16 +38,13 @@ public class PageIO implements DiskInterface<Integer, byte[]> {
 
     @Override
     public boolean write(Integer offset,byte[] data) {
-
-        ReentrantReadWriteLock.WriteLock writeLock = fileLockManager.getRwLock().writeLock();
         try {
-            RandomAccessFile raf = accessFileObjectPool.acquire();
-            writeLock.lock();
-            fileLockManager.getRwLock().readLock();
+            RandomAccessFile raf = diskOperationConfig.getAccessFileObjectPool().acquire();
+            diskOperationConfig.lockWrite();
             raf.seek(offset);
             raf.write(data);
-            writeLock.unlock();
-            accessFileObjectPool.release(raf);
+            diskOperationConfig.unlockWrite();
+            diskOperationConfig.getAccessFileObjectPool().release(raf);
         } catch (Exception e) {
             return false;
         }
