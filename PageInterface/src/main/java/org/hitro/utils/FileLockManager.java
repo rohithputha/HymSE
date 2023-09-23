@@ -2,6 +2,9 @@ package org.hitro.utils;
 
 import lombok.Getter;
 
+import java.io.File;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class FileLockManager {
@@ -13,15 +16,17 @@ public class FileLockManager {
         this.rwLock = new ReentrantReadWriteLock();
     }
 
-    private static FileLockManager fileLockManager;
-    public static FileLockManager getInstance(){
-        if(fileLockManager == null){
-            synchronized (FileLockManager.class){
-                if(fileLockManager == null){
-                    fileLockManager = new FileLockManager();
+    private static Map<String, FileLockManager> fileLockManagerMap;
+    public static FileLockManager getInstance(String file){
+        synchronized (FileLockManager.class){
+            if(fileLockManagerMap==null){
+                fileLockManagerMap = new ConcurrentHashMap<>();
+            }
+            if(!fileLockManagerMap.containsKey(file)){
+                    fileLockManagerMap.put(file, new FileLockManager());
                 }
             }
-        }
-        return fileLockManager;
+
+        return fileLockManagerMap.get(file);
     }
 }
